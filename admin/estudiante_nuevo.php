@@ -7,29 +7,33 @@ require_once("../config/conexion.php");
 /* Verificar sesión */
 if (!isset($_SESSION["id_usuario"])) {
 
-    header("Location: /asistenciaQR/auth/login.php");
+    header("Location: ../auth/login.php");
     exit();
 
 }
 
-/* Solo administrador */
+/* Verificar administrador */
 if ($_SESSION["id_rol"] != 1) {
 
-    header("Location: /asistenciaQR/docente/dashboard.php");
+    header("Location: ../docente/dashboard.php");
     exit();
 
 }
 
 $error = "";
 
+
+/* ==========================
+   GUARDAR ESTUDIANTE
+   ========================== */
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     $nombres = trim($_POST["nombres"]);
     $apellidos = trim($_POST["apellidos"]);
     $documento = trim($_POST["documento"]);
-    $correo = trim($_POST["correo"]);
-    $password = trim($_POST["password"]);
-    $id_rol = intval($_POST["id_rol"]);
+    $id_curso = intval($_POST["id_curso"]);
+
 
     /* Validar campos */
 
@@ -37,27 +41,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         empty($nombres) ||
         empty($apellidos) ||
         empty($documento) ||
-        empty($correo) ||
-        empty($password) ||
-        empty($id_rol)
+        empty($id_curso)
     ) {
 
         $error = "Todos los campos son obligatorios.";
 
-    } elseif (!filter_var($correo, FILTER_VALIDATE_EMAIL)) {
-
-        $error = "El correo electrónico no es válido.";
-
-    } elseif (strlen($password) < 6) {
-
-        $error = "La contraseña debe tener mínimo 6 caracteres.";
-
     } else {
+
 
         /* Verificar documento */
 
-        $sql = "SELECT id_usuario
-                FROM usuarios
+        $sql = "SELECT id_estudiante
+                FROM estudiantes
                 WHERE documento = ?";
 
         $stmt = mysqli_prepare($conexion, $sql);
@@ -72,84 +67,76 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         $resultado = mysqli_stmt_get_result($stmt);
 
+
         if (mysqli_num_rows($resultado) > 0) {
 
             $error = "El documento ya está registrado.";
 
         } else {
 
-            /* Verificar correo */
 
-            $sql = "SELECT id_usuario
-                    FROM usuarios
-                    WHERE correo = ?";
+            /* Verificar que el curso exista y esté activo */
+
+            $sql = "SELECT id_curso
+                    FROM cursos
+                    WHERE id_curso = ?
+                    AND estado = 'ACTIVO'";
 
             $stmt = mysqli_prepare($conexion, $sql);
 
             mysqli_stmt_bind_param(
                 $stmt,
-                "s",
-                $correo
+                "i",
+                $id_curso
             );
 
             mysqli_stmt_execute($stmt);
 
             $resultado = mysqli_stmt_get_result($stmt);
 
-            if (mysqli_num_rows($resultado) > 0) {
 
-                $error = "El correo ya está registrado.";
+            if (mysqli_num_rows($resultado) != 1) {
+
+                $error = "El curso seleccionado no es válido.";
 
             } else {
 
-                /* Crear hash */
 
-                $password_hash = password_hash(
-                    $password,
-                    PASSWORD_DEFAULT
-                );
+                /* Insertar estudiante */
 
-                /* Insertar */
-
-                $sql = "INSERT INTO usuarios
+                $sql = "INSERT INTO estudiantes
                         (
-                            id_rol,
+                            documento,
                             nombres,
                             apellidos,
-                            documento,
-                            correo,
-                            password,
+                            id_curso,
                             estado
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, 'ACTIVO')";
+                        VALUES (?, ?, ?, ?, 'ACTIVO')";
 
-                $stmt = mysqli_prepare(
-                    $conexion,
-                    $sql
-                );
+                $stmt = mysqli_prepare($conexion, $sql);
 
                 mysqli_stmt_bind_param(
                     $stmt,
-                    "isssss",
-                    $id_rol,
+                    "sssi",
+                    $documento,
                     $nombres,
                     $apellidos,
-                    $documento,
-                    $correo,
-                    $password_hash
+                    $id_curso
                 );
+
 
                 if (mysqli_stmt_execute($stmt)) {
 
                     header(
-                        "Location: /asistenciaQR/admin/usuarios.php?mensaje=creado"
+                        "Location: estudiantes.php?mensaje=creado"
                     );
 
                     exit();
 
                 } else {
 
-                    $error = "No se pudo crear el usuario.";
+                    $error = "No se pudo registrar el estudiante.";
 
                 }
 
@@ -158,6 +145,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
     }
+
+}
+
+
+/* ==========================
+   CONSULTAR CURSOS
+   ========================== */
+
+$sql = "SELECT id_curso, nombre_curso
+        FROM cursos
+        WHERE estado = 'ACTIVO'
+        ORDER BY nombre_curso ASC";
+
+$resultado_cursos = mysqli_query($conexion, $sql);
+
+if (!$resultado_cursos) {
+
+    die(
+        "Error al consultar los cursos: "
+        . mysqli_error($conexion)
+    );
 
 }
 
@@ -176,7 +184,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         content="width=device-width, initial-scale=1"
     >
 
-    <title>Nuevo usuario - Asistencia QR</title>
+    <title>Nuevo estudiante - Asistencia QR</title>
 
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css"
@@ -195,14 +203,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 </head>
 
+
 <body class="bg-light">
+
+
+<!-- ==========================
+     BARRA SUPERIOR
+     ========================== -->
 
 <nav class="navbar navbar-dark bg-primary">
 
     <div class="container-fluid">
 
         <a
-            href="/asistenciaQR/admin/dashboard.php"
+            href="dashboard.php"
             class="navbar-brand"
         >
 
@@ -212,12 +226,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         </a>
 
+
         <span class="text-white">
 
             <i class="bi bi-person-circle"></i>
 
             <?php
-            echo htmlspecialchars($_SESSION["nombre"]);
+
+            echo htmlspecialchars(
+                $_SESSION["nombre"]
+            );
+
             ?>
 
         </span>
@@ -231,7 +250,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <div class="row">
 
-        <!-- MENÚ -->
+
+        <!-- ==========================
+             MENÚ LATERAL
+             ========================== -->
 
         <aside class="col-md-2 bg-dark min-vh-100 p-3">
 
@@ -243,10 +265,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             </h5>
 
+
             <div class="nav flex-column nav-pills">
 
+
                 <a
-                    href="/asistenciaQR/admin/dashboard.php"
+                    href="dashboard.php"
                     class="nav-link text-white mb-2"
                 >
 
@@ -256,9 +280,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 </a>
 
+
                 <a
-                    href="/asistenciaQR/admin/usuarios.php"
-                    class="nav-link active mb-2"
+                    href="usuarios.php"
+                    class="nav-link text-white mb-2"
                 >
 
                     <i class="bi bi-people"></i>
@@ -267,9 +292,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 </a>
 
+
                 <a
-                    href="#"
-                    class="nav-link text-white mb-2"
+                    href="estudiantes.php"
+                    class="nav-link active mb-2"
                 >
 
                     <i class="bi bi-mortarboard"></i>
@@ -277,6 +303,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     Estudiantes
 
                 </a>
+
 
                 <a
                     href="#"
@@ -289,6 +316,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 </a>
 
+
                 <a
                     href="#"
                     class="nav-link text-white mb-2"
@@ -300,7 +328,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 </a>
 
+
                 <hr class="text-secondary">
+
 
                 <a
                     href="#"
@@ -313,6 +343,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 </a>
 
+
                 <a
                     href="#"
                     class="nav-link text-white mb-2"
@@ -323,6 +354,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     Restaurante
 
                 </a>
+
 
                 <a
                     href="#"
@@ -335,6 +367,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 </a>
 
+
                 <a
                     href="#"
                     class="nav-link text-white mb-2"
@@ -346,10 +379,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 </a>
 
+
                 <hr class="text-secondary">
 
+
                 <a
-                    href="/asistenciaQR/auth/logout.php"
+                    href="../auth/logout.php"
                     class="nav-link text-danger"
                 >
 
@@ -364,9 +399,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </aside>
 
 
-        <!-- CONTENIDO -->
+        <!-- ==========================
+             CONTENIDO
+             ========================== -->
 
         <main class="col-md-10 p-4">
+
 
             <div class="mb-4">
 
@@ -374,13 +412,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                     <i class="bi bi-person-plus"></i>
 
-                    Nuevo usuario
+                    Nuevo estudiante
 
                 </h2>
 
                 <p class="text-muted">
 
-                    Registrar un nuevo usuario en el sistema.
+                    Registrar un nuevo estudiante en el sistema.
 
                 </p>
 
@@ -394,7 +432,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <i class="bi bi-exclamation-triangle"></i>
 
                     <?php
+
                     echo htmlspecialchars($error);
+
                     ?>
 
                 </div>
@@ -406,14 +446,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 <div class="card-body p-4">
 
+
                     <form method="POST">
 
+
                         <div class="row">
+
+
+                            <!-- NOMBRES -->
 
                             <div class="col-md-6 mb-3">
 
                                 <label class="form-label">
+
                                     Nombres
+
                                 </label>
 
                                 <input
@@ -427,10 +474,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             </div>
 
 
+                            <!-- APELLIDOS -->
+
                             <div class="col-md-6 mb-3">
 
                                 <label class="form-label">
+
                                     Apellidos
+
                                 </label>
 
                                 <input
@@ -444,10 +495,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             </div>
 
 
+                            <!-- DOCUMENTO -->
+
                             <div class="col-md-6 mb-3">
 
                                 <label class="form-label">
+
                                     Documento
+
                                 </label>
 
                                 <input
@@ -458,72 +513,63 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                     required
                                 >
 
-                            </div>
-
-
-                            <div class="col-md-6 mb-3">
-
-                                <label class="form-label">
-                                    Correo electrónico
-                                </label>
-
-                                <input
-                                    type="email"
-                                    name="correo"
-                                    class="form-control"
-                                    maxlength="150"
-                                    required
-                                >
-
-                            </div>
-
-
-                            <div class="col-md-6 mb-3">
-
-                                <label class="form-label">
-                                    Contraseña
-                                </label>
-
-                                <input
-                                    type="password"
-                                    name="password"
-                                    class="form-control"
-                                    minlength="6"
-                                    required
-                                >
-
                                 <small class="text-muted">
 
-                                    Mínimo 6 caracteres.
+                                    Este documento será utilizado como
+                                    identificación del código QR.
 
                                 </small>
 
                             </div>
 
 
+                            <!-- CURSO -->
+
                             <div class="col-md-6 mb-3">
 
                                 <label class="form-label">
-                                    Rol
+
+                                    Curso
+
                                 </label>
 
                                 <select
-                                    name="id_rol"
+                                    name="id_curso"
                                     class="form-select"
                                     required
                                 >
 
                                     <option value="">
-                                        Seleccionar rol
+
+                                        Seleccionar curso
+
                                     </option>
 
-                                    <option value="2">
-                                        DOCENTE
-                                    </option>
 
-                                    <option value="1">
-                                        ADMINISTRADOR
-                                    </option>
+                                    <?php while (
+                                        $curso =
+                                        mysqli_fetch_assoc(
+                                            $resultado_cursos
+                                        )
+                                    ): ?>
+
+                                        <option
+                                            value="<?php
+                                            echo $curso["id_curso"];
+                                            ?>"
+                                        >
+
+                                            <?php
+
+                                            echo htmlspecialchars(
+                                                $curso["nombre_curso"]
+                                            );
+
+                                            ?>
+
+                                        </option>
+
+                                    <?php endwhile; ?>
 
                                 </select>
 
@@ -537,8 +583,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                         <div class="d-flex gap-2">
 
+
                             <a
-                                href="/asistenciaQR/admin/usuarios.php"
+                                href="estudiantes.php"
                                 class="btn btn-secondary"
                             >
 
@@ -556,23 +603,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                                 <i class="bi bi-save"></i>
 
-                                Guardar usuario
+                                Guardar estudiante
 
                             </button>
 
+
                         </div>
 
+
                     </form>
+
 
                 </div>
 
             </div>
+
 
         </main>
 
     </div>
 
 </div>
+
+
+<script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js">
+</script>
+
 
 </body>
 

@@ -1,40 +1,27 @@
 <?php
 
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
 session_start();
 
 require_once("../config/conexion.php");
 
-
-/* ==============================
-   VERIFICAR SESIÓN
-   ============================== */
-
+/* Verificar sesión */
 if (!isset($_SESSION["id_usuario"])) {
 
-    header("Location: /asistencia_qr/auth/login.php");
+    header("Location: ../auth/login.php");
     exit();
 
 }
 
-
-/* ==============================
-   VERIFICAR ADMINISTRADOR
-   ============================== */
-
+/* Verificar administrador */
 if ($_SESSION["id_rol"] != 1) {
 
-    header("Location: /asistencia_qr/docente/dashboard.php");
+    header("Location: ../docente/dashboard.php");
     exit();
 
 }
 
 
-/* ==============================
-   VERIFICAR ID
-   ============================== */
+/* Verificar ID */
 
 if (!isset($_GET["id"]) || !is_numeric($_GET["id"])) {
 
@@ -45,40 +32,12 @@ if (!isset($_GET["id"]) || !is_numeric($_GET["id"])) {
 
 $id_usuario = intval($_GET["id"]);
 
-
-/* ==============================
-   BUSCAR USUARIO
-   ============================== */
-
-$sql = "SELECT *
-        FROM usuarios
-        WHERE id_usuario = ?";
-
-$stmt = mysqli_prepare($conexion, $sql);
-
-mysqli_stmt_bind_param($stmt, "i", $id_usuario);
-
-mysqli_stmt_execute($stmt);
-
-$resultado = mysqli_stmt_get_result($stmt);
-
-
-if (mysqli_num_rows($resultado) != 1) {
-
-    header("Location: usuarios.php");
-    exit();
-
-}
-
-
-$usuario = mysqli_fetch_assoc($resultado);
-
-
-/* ==============================
-   PROCESAR FORMULARIO
-   ============================== */
-
 $error = "";
+
+
+/* ==========================
+   PROCESAR FORMULARIO
+   ========================== */
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
@@ -90,19 +49,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = trim($_POST["password"]);
 
 
-    /* ==============================
-       VALIDACIONES
-       ============================== */
+    /* Validaciones */
 
     if (
         empty($nombres) ||
         empty($apellidos) ||
         empty($documento) ||
         empty($correo) ||
-        $id_rol <= 0
+        empty($id_rol)
     ) {
 
-        $error = "Todos los campos obligatorios deben estar completos.";
+        $error = "Los campos obligatorios deben estar completos.";
 
     } elseif (!filter_var($correo, FILTER_VALIDATE_EMAIL)) {
 
@@ -111,192 +68,131 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     } else {
 
 
-        /* ==============================
-           VERIFICAR DOCUMENTO
-           ============================== */
+        /* Verificar documento */
 
-        $sql_documento = "SELECT id_usuario
-                          FROM usuarios
-                          WHERE documento = ?
-                          AND id_usuario != ?";
+        $sql = "SELECT id_usuario
+                FROM usuarios
+                WHERE documento = ?
+                AND id_usuario != ?";
 
-        $stmt_documento = mysqli_prepare(
-            $conexion,
-            $sql_documento
-        );
+        $stmt = mysqli_prepare($conexion, $sql);
 
         mysqli_stmt_bind_param(
-            $stmt_documento,
+            $stmt,
             "si",
             $documento,
             $id_usuario
         );
 
-        mysqli_stmt_execute($stmt_documento);
+        mysqli_stmt_execute($stmt);
 
-        $resultado_documento = mysqli_stmt_get_result(
-            $stmt_documento
-        );
+        $resultado = mysqli_stmt_get_result($stmt);
 
 
-        if (mysqli_num_rows($resultado_documento) > 0) {
+        if (mysqli_num_rows($resultado) > 0) {
 
-            $error = "El documento ya está registrado por otro usuario.";
+            $error = "El documento ya pertenece a otro usuario.";
 
         } else {
 
 
-            /* ==============================
-               VERIFICAR CORREO
-               ============================== */
+            /* Verificar correo */
 
-            $sql_correo = "SELECT id_usuario
-                           FROM usuarios
-                           WHERE correo = ?
-                           AND id_usuario != ?";
+            $sql = "SELECT id_usuario
+                    FROM usuarios
+                    WHERE correo = ?
+                    AND id_usuario != ?";
 
-            $stmt_correo = mysqli_prepare(
-                $conexion,
-                $sql_correo
-            );
+            $stmt = mysqli_prepare($conexion, $sql);
 
             mysqli_stmt_bind_param(
-                $stmt_correo,
+                $stmt,
                 "si",
                 $correo,
                 $id_usuario
             );
 
-            mysqli_stmt_execute($stmt_correo);
+            mysqli_stmt_execute($stmt);
 
-            $resultado_correo = mysqli_stmt_get_result(
-                $stmt_correo
-            );
+            $resultado = mysqli_stmt_get_result($stmt);
 
 
-            if (mysqli_num_rows($resultado_correo) > 0) {
+            if (mysqli_num_rows($resultado) > 0) {
 
-                $error = "El correo ya está registrado por otro usuario.";
+                $error = "El correo ya pertenece a otro usuario.";
 
             } else {
 
 
-                /* ==============================
-                   ACTUALIZAR SIN CAMBIAR PASSWORD
-                   ============================== */
+                /* ==========================
+                   ACTUALIZAR DATOS
+                   ========================== */
 
-                if (empty($password)) {
+                if (!empty($password)) {
 
-                    $sql_update = "UPDATE usuarios
-                                   SET
-                                       id_rol = ?,
-                                       nombres = ?,
-                                       apellidos = ?,
-                                       documento = ?,
-                                       correo = ?
-                                   WHERE id_usuario = ?";
-
-                    $stmt_update = mysqli_prepare(
-                        $conexion,
-                        $sql_update
+                    $password_hash = password_hash(
+                        $password,
+                        PASSWORD_DEFAULT
                     );
 
+                    $sql = "UPDATE usuarios
+                            SET nombres = ?,
+                                apellidos = ?,
+                                documento = ?,
+                                correo = ?,
+                                id_rol = ?,
+                                password = ?
+                            WHERE id_usuario = ?";
+
+                    $stmt = mysqli_prepare($conexion, $sql);
+
                     mysqli_stmt_bind_param(
-                        $stmt_update,
-                        "issssi",
-                        $id_rol,
+                        $stmt,
+                        "ssssisi",
                         $nombres,
                         $apellidos,
                         $documento,
                         $correo,
+                        $id_rol,
+                        $password_hash,
                         $id_usuario
                     );
 
                 } else {
 
+                    $sql = "UPDATE usuarios
+                            SET nombres = ?,
+                                apellidos = ?,
+                                documento = ?,
+                                correo = ?,
+                                id_rol = ?
+                            WHERE id_usuario = ?";
 
-                    /* ==============================
-                       ACTUALIZAR CON NUEVA PASSWORD
-                       ============================== */
+                    $stmt = mysqli_prepare($conexion, $sql);
 
-                    if (strlen($password) < 6) {
-
-                        $error = "La contraseña debe tener mínimo 6 caracteres.";
-
-                    } else {
-
-                        $password_hash = password_hash(
-                            $password,
-                            PASSWORD_DEFAULT
-                        );
-
-
-                        $sql_update = "UPDATE usuarios
-                                       SET
-                                           id_rol = ?,
-                                           nombres = ?,
-                                           apellidos = ?,
-                                           documento = ?,
-                                           correo = ?,
-                                           password = ?
-                                       WHERE id_usuario = ?";
-
-                        $stmt_update = mysqli_prepare(
-                            $conexion,
-                            $sql_update
-                        );
-
-                        mysqli_stmt_bind_param(
-                            $stmt_update,
-                            "isssssi",
-                            $id_rol,
-                            $nombres,
-                            $apellidos,
-                            $documento,
-                            $correo,
-                            $password_hash,
-                            $id_usuario
-                        );
-
-                    }
+                    mysqli_stmt_bind_param(
+                        $stmt,
+                        "ssssii",
+                        $nombres,
+                        $apellidos,
+                        $documento,
+                        $correo,
+                        $id_rol,
+                        $id_usuario
+                    );
 
                 }
 
 
-                /* ==============================
-                   GUARDAR CAMBIOS
-                   ============================== */
+                if (mysqli_stmt_execute($stmt)) {
 
-                if (empty($error)) {
+                    header("Location: usuarios.php?mensaje=editado");
 
-                    if (mysqli_stmt_execute($stmt_update)) {
+                    exit();
 
-                        /*
-                         * Si el usuario editado es el administrador
-                         * que tiene la sesión actual, actualizamos
-                         * también el nombre de la sesión.
-                         */
+                } else {
 
-                        if ($id_usuario == $_SESSION["id_usuario"]) {
-
-                            $_SESSION["nombre"] = $nombres;
-
-                            $_SESSION["id_rol"] = $id_rol;
-
-                        }
-
-
-                        header(
-                            "Location: usuarios.php?mensaje=editado"
-                        );
-
-                        exit();
-
-                    } else {
-
-                        $error = "No se pudieron guardar los cambios.";
-
-                    }
+                    $error = "No se pudo actualizar el usuario.";
 
                 }
 
@@ -306,19 +202,39 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     }
 
+}
 
-    /*
-     * Si hubo un error, mostramos nuevamente
-     * los datos introducidos.
-     */
 
-    $usuario["nombres"] = $nombres;
-    $usuario["apellidos"] = $apellidos;
-    $usuario["documento"] = $documento;
-    $usuario["correo"] = $correo;
-    $usuario["id_rol"] = $id_rol;
+/* ==========================
+   CONSULTAR USUARIO
+   ========================== */
+
+$sql = "SELECT *
+        FROM usuarios
+        WHERE id_usuario = ?";
+
+$stmt = mysqli_prepare($conexion, $sql);
+
+mysqli_stmt_bind_param(
+    $stmt,
+    "i",
+    $id_usuario
+);
+
+mysqli_stmt_execute($stmt);
+
+$resultado = mysqli_stmt_get_result($stmt);
+
+
+if (mysqli_num_rows($resultado) != 1) {
+
+    header("Location: usuarios.php?error=noexiste");
+    exit();
 
 }
+
+
+$usuario = mysqli_fetch_assoc($resultado);
 
 ?>
 
@@ -337,18 +253,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <title>Editar usuario - Asistencia QR</title>
 
-
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css"
         rel="stylesheet"
     >
 
-
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
         rel="stylesheet"
     >
-
 
     <link
         rel="stylesheet"
@@ -361,9 +274,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <body class="bg-light">
 
 
-<!-- ==============================
+<!-- ==========================
      BARRA SUPERIOR
-     ============================== -->
+     ========================== -->
 
 <nav class="navbar navbar-dark bg-primary">
 
@@ -405,23 +318,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <div class="row">
 
 
-        <!-- ==============================
+        <!-- ==========================
              MENÚ LATERAL
-             ============================== -->
+             ========================== -->
 
         <aside class="col-md-2 bg-dark min-vh-100 p-3">
 
-            <div class="text-white mb-4">
+            <h5 class="text-white mb-4">
 
-                <h5>
+                <i class="bi bi-speedometer2"></i>
 
-                    <i class="bi bi-speedometer2"></i>
+                Administración
 
-                    Administración
-
-                </h5>
-
-            </div>
+            </h5>
 
 
             <div class="nav flex-column nav-pills">
@@ -557,9 +466,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </aside>
 
 
-        <!-- ==============================
+        <!-- ==========================
              CONTENIDO
-             ============================== -->
+             ========================== -->
 
         <main class="col-md-10 p-4">
 
@@ -576,7 +485,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 <p class="text-muted">
 
-                    Modifica la información del usuario.
+                    Modificar información del usuario.
 
                 </p>
 
@@ -625,15 +534,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                     type="text"
                                     name="nombres"
                                     class="form-control"
-                                    maxlength="100"
+                                    value="<?php echo htmlspecialchars($usuario["nombres"]); ?>"
                                     required
-                                    value="<?php
-
-                                    echo htmlspecialchars(
-                                        $usuario["nombres"]
-                                    );
-
-                                    ?>"
                                 >
 
                             </div>
@@ -653,15 +555,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                     type="text"
                                     name="apellidos"
                                     class="form-control"
-                                    maxlength="100"
+                                    value="<?php echo htmlspecialchars($usuario["apellidos"]); ?>"
                                     required
-                                    value="<?php
-
-                                    echo htmlspecialchars(
-                                        $usuario["apellidos"]
-                                    );
-
-                                    ?>"
                                 >
 
                             </div>
@@ -681,15 +576,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                     type="text"
                                     name="documento"
                                     class="form-control"
-                                    maxlength="20"
+                                    value="<?php echo htmlspecialchars($usuario["documento"]); ?>"
                                     required
-                                    value="<?php
-
-                                    echo htmlspecialchars(
-                                        $usuario["documento"]
-                                    );
-
-                                    ?>"
                                 >
 
                             </div>
@@ -701,7 +589,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                                 <label class="form-label">
 
-                                    Correo electrónico
+                                    Correo
 
                                 </label>
 
@@ -709,21 +597,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                     type="email"
                                     name="correo"
                                     class="form-control"
-                                    maxlength="150"
+                                    value="<?php echo htmlspecialchars($usuario["correo"]); ?>"
                                     required
-                                    value="<?php
-
-                                    echo htmlspecialchars(
-                                        $usuario["correo"]
-                                    );
-
-                                    ?>"
                                 >
 
                             </div>
 
 
-                            <!-- PASSWORD -->
+                            <!-- CONTRASEÑA -->
 
                             <div class="col-md-6 mb-3">
 
@@ -737,14 +618,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                     type="password"
                                     name="password"
                                     class="form-control"
-                                    minlength="6"
                                 >
 
-                                <div class="form-text">
+                                <small class="text-muted">
 
-                                    Déjalo vacío si no deseas cambiarla.
+                                    Déjala vacía si no quieres cambiarla.
 
-                                </div>
+                                </small>
 
                             </div>
 
@@ -765,41 +645,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                     required
                                 >
 
-                                    <option value="">
-
-                                        Seleccionar rol
-
-                                    </option>
-
-
-                                    <option
-                                        value="2"
-                                        <?php
-
-                                        if (
-                                            $usuario["id_rol"] == 2
-                                        ) {
-                                            echo "selected";
-                                        }
-
-                                        ?>
-                                    >
-
-                                        DOCENTE
-
-                                    </option>
-
-
                                     <option
                                         value="1"
                                         <?php
-
-                                        if (
-                                            $usuario["id_rol"] == 1
-                                        ) {
+                                        if ($usuario["id_rol"] == 1) {
                                             echo "selected";
                                         }
-
                                         ?>
                                     >
 
@@ -807,10 +658,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                                     </option>
 
+
+                                    <option
+                                        value="2"
+                                        <?php
+                                        if ($usuario["id_rol"] == 2) {
+                                            echo "selected";
+                                        }
+                                        ?>
+                                    >
+
+                                        DOCENTE
+
+                                    </option>
+
                                 </select>
 
                             </div>
-
 
                         </div>
 
@@ -819,6 +683,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 
                         <div class="d-flex gap-2">
+
 
                             <a
                                 href="usuarios.php"
@@ -843,10 +708,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                             </button>
 
+
                         </div>
 
 
                     </form>
+
 
                 </div>
 
