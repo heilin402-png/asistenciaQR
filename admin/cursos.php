@@ -7,41 +7,51 @@ session_start();
 
 require_once("../config/conexion.php");
 
-/* Verificar sesión */
+
+/* ==========================
+   VERIFICAR SESIÓN
+   ========================== */
+
 if (!isset($_SESSION["id_usuario"])) {
+
     header("Location: ../auth/login.php");
     exit();
-}
 
-/* Verificar administrador */
-if ($_SESSION["id_rol"] != 1) {
-    header("Location: ../docente/dashboard.php");
-    exit();
 }
 
 
 /* ==========================
-   CONSULTAR USUARIOS
+   VERIFICAR ADMIN
    ========================== */
 
-$sql = "SELECT 
-            u.id_usuario,
-            u.nombres,
-            u.apellidos,
-            u.documento,
-            u.correo,
-            r.nombre_rol,
-            u.estado,
-            u.fecha_creacion
-        FROM usuarios u
-        INNER JOIN roles r 
-            ON u.id_rol = r.id_rol
-        ORDER BY u.id_usuario DESC";
+if ($_SESSION["id_rol"] != 1) {
+
+    header("Location: ../docente/dashboard.php");
+    exit();
+
+}
+
+
+/* ==========================
+   CONSULTAR CURSOS
+   ========================== */
+
+$sql = "SELECT
+            id_curso,
+            nombre_curso,
+            estado
+        FROM cursos
+        ORDER BY id_curso DESC";
 
 $resultado = mysqli_query($conexion, $sql);
 
 if (!$resultado) {
-    die("Error al consultar usuarios: " . mysqli_error($conexion));
+
+    die(
+        "Error al consultar cursos: "
+        . mysqli_error($conexion)
+    );
+
 }
 
 ?>
@@ -54,9 +64,12 @@ if (!$resultado) {
 
     <meta charset="UTF-8">
 
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
 
-    <title>Usuarios - Asistencia QR</title>
+    <title>Cursos - Asistencia QR</title>
 
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css"
@@ -68,7 +81,10 @@ if (!$resultado) {
         rel="stylesheet"
     >
 
-    <link rel="stylesheet" href="../assets/css/estilos.css">
+    <link
+        rel="stylesheet"
+        href="../assets/css/estilos.css"
+    >
 
 </head>
 
@@ -76,9 +92,7 @@ if (!$resultado) {
 <body class="bg-light">
 
 
-<!-- ==========================
-     BARRA SUPERIOR
-     ========================== -->
+<!-- BARRA SUPERIOR -->
 
 <nav class="navbar navbar-dark bg-primary">
 
@@ -100,7 +114,13 @@ if (!$resultado) {
 
             <i class="bi bi-person-circle"></i>
 
-            <?php echo htmlspecialchars($_SESSION["nombre"]); ?>
+            <?php
+
+            echo htmlspecialchars(
+                $_SESSION["nombre"]
+            );
+
+            ?>
 
         </span>
 
@@ -114,9 +134,7 @@ if (!$resultado) {
     <div class="row">
 
 
-        <!-- ==========================
-             MENÚ LATERAL
-             ========================== -->
+        <!-- MENÚ -->
 
         <aside class="col-md-2 bg-dark min-vh-100 p-3">
 
@@ -150,7 +168,7 @@ if (!$resultado) {
 
                 <a
                     href="usuarios.php"
-                    class="nav-link active mb-2"
+                    class="nav-link text-white mb-2"
                 >
 
                     <i class="bi bi-people"></i>
@@ -173,8 +191,8 @@ if (!$resultado) {
 
 
                 <a
-                    href="#"
-                    class="nav-link text-white mb-2"
+                    href="cursos.php"
+                    class="nav-link active mb-2"
                 >
 
                     <i class="bi bi-book"></i>
@@ -200,7 +218,7 @@ if (!$resultado) {
 
 
                 <a
-                    href="#"
+                    href="asistencia.php"
                     class="nav-link text-white mb-2"
                 >
 
@@ -266,10 +284,7 @@ if (!$resultado) {
         </aside>
 
 
-
-        <!-- ==========================
-             CONTENIDO
-             ========================== -->
+        <!-- CONTENIDO -->
 
         <main class="col-md-10 p-4">
 
@@ -280,37 +295,98 @@ if (!$resultado) {
 
                     <h2>
 
-                        Usuarios
+                        <i class="bi bi-book"></i>
+
+                        Cursos
 
                     </h2>
 
                     <p class="text-muted mb-0">
 
-                        Administración de usuarios del sistema
+                        Administración de cursos del sistema.
 
                     </p>
 
                 </div>
+                
+                </a>
+
+                <a
+                    href="curso_editar.php?id=<?php echo $curso["id_curso"]; ?>"
+                    class="btn btn-sm btn-outline-primary"
+                    title="Editar"
+                >
+                    <i class="bi bi-pencil"></i>
+                </a>
 
 
                 <a
-                    href="usuario_nuevo.php"
+                    href="curso_nuevo.php"
                     class="btn btn-primary"
                 >
 
-                    <i class="bi bi-person-plus"></i>
+                    <i class="bi bi-plus-circle"></i>
 
-                    Nuevo usuario
+                    Nuevo curso
 
                 </a>
 
             </div>
 
 
+            <!-- MENSAJES -->
 
-            <!-- ==========================
-                 TABLA
-                 ========================== -->
+            <?php if (isset($_GET["mensaje"])): ?>
+
+                <?php if ($_GET["mensaje"] == "creado"): ?>
+
+                    <div class="alert alert-success">
+
+                        <i class="bi bi-check-circle"></i>
+
+                        Curso creado correctamente.
+
+                    </div>
+
+                <?php elseif ($_GET["mensaje"] == "editado"): ?>
+
+                    <div class="alert alert-success">
+
+                        <i class="bi bi-check-circle"></i>
+
+                        Curso actualizado correctamente.
+
+                    </div>
+
+                <?php elseif ($_GET["mensaje"] == "estado"): ?>
+
+                    <div class="alert alert-success">
+
+                        <i class="bi bi-check-circle"></i>
+
+                        Estado del curso actualizado.
+
+                    </div>
+
+                <?php endif; ?>
+
+            <?php endif; ?>
+
+
+            <?php if (isset($_GET["error"])): ?>
+
+                <div class="alert alert-danger">
+
+                    <i class="bi bi-exclamation-triangle"></i>
+
+                    No se pudo realizar la operación.
+
+                </div>
+
+            <?php endif; ?>
+
+
+            <!-- TABLA -->
 
             <div class="card shadow-sm border-0">
 
@@ -326,17 +402,9 @@ if (!$resultado) {
 
                                     <th>ID</th>
 
-                                    <th>Nombre</th>
-
-                                    <th>Documento</th>
-
-                                    <th>Correo</th>
-
-                                    <th>Rol</th>
+                                    <th>Curso</th>
 
                                     <th>Estado</th>
-
-                                    <th>Fecha creación</th>
 
                                     <th>Acciones</th>
 
@@ -347,15 +415,23 @@ if (!$resultado) {
 
                             <tbody>
 
+
                             <?php if (mysqli_num_rows($resultado) > 0): ?>
 
-                                <?php while ($usuario = mysqli_fetch_assoc($resultado)): ?>
+
+                                <?php while (
+                                    $curso = mysqli_fetch_assoc($resultado)
+                                ): ?>
 
                                     <tr>
 
                                         <td>
 
-                                            <?php echo $usuario["id_usuario"]; ?>
+                                            <?php
+
+                                            echo $curso["id_curso"];
+
+                                            ?>
 
                                         </td>
 
@@ -365,9 +441,11 @@ if (!$resultado) {
                                             <strong>
 
                                                 <?php
+
                                                 echo htmlspecialchars(
-                                                    $usuario["nombres"] . " " . $usuario["apellidos"]
+                                                    $curso["nombre_curso"]
                                                 );
+
                                                 ?>
 
                                             </strong>
@@ -377,36 +455,13 @@ if (!$resultado) {
 
                                         <td>
 
-                                            <?php
-                                            echo htmlspecialchars($usuario["documento"]);
-                                            ?>
+                                            <?php if (
+                                                $curso["estado"] == "ACTIVO"
+                                            ): ?>
 
-                                        </td>
-
-
-                                        <td>
-
-                                            <?php
-                                            echo htmlspecialchars($usuario["correo"]);
-                                            ?>
-
-                                        </td>
-
-
-                                        <td>
-
-                                            <?php
-                                            echo htmlspecialchars($usuario["nombre_rol"]);
-                                            ?>
-
-                                        </td>
-
-
-                                        <td>
-
-                                            <?php if ($usuario["estado"] == "ACTIVO"): ?>
-
-                                                <span class="badge text-bg-success">
+                                                <span
+                                                    class="badge text-bg-success"
+                                                >
 
                                                     ACTIVO
 
@@ -414,7 +469,9 @@ if (!$resultado) {
 
                                             <?php else: ?>
 
-                                                <span class="badge text-bg-secondary">
+                                                <span
+                                                    class="badge text-bg-secondary"
+                                                >
 
                                                     INACTIVO
 
@@ -427,20 +484,8 @@ if (!$resultado) {
 
                                         <td>
 
-                                            <?php
-                                            echo date(
-                                                "d/m/Y H:i",
-                                                strtotime($usuario["fecha_creacion"])
-                                            );
-                                            ?>
-
-                                        </td>
-
-
-                                        <td>
-
                                             <a
-                                                href="usuario_editar.php?id=<?php echo $usuario["id_usuario"]; ?>"
+                                                href="curso_editar.php?id=<?php echo $curso["id_curso"]; ?>"
                                                 class="btn btn-sm btn-outline-primary"
                                                 title="Editar"
                                             >
@@ -450,19 +495,15 @@ if (!$resultado) {
                                             </a>
 
 
-                                            <?php if ($usuario["id_usuario"] != $_SESSION["id_usuario"]): ?>
+                                            <a
+                                                href="curso_estado.php?id=<?php echo $curso["id_curso"]; ?>"
+                                                class="btn btn-sm btn-outline-warning"
+                                                title="Cambiar estado"
+                                            >
 
-                                                <a
-                                                    href="usuario_estado.php?id=<?php echo $usuario["id_usuario"]; ?>"
-                                                    class="btn btn-sm btn-outline-warning"
-                                                    title="Cambiar estado"
-                                                >
+                                                <i class="bi bi-arrow-repeat"></i>
 
-                                                    <i class="bi bi-arrow-repeat"></i>
-
-                                                </a>
-
-                                            <?php endif; ?>
+                                            </a>
 
                                         </td>
 
@@ -470,22 +511,28 @@ if (!$resultado) {
 
                                 <?php endwhile; ?>
 
+
                             <?php else: ?>
 
                                 <tr>
 
                                     <td
-                                        colspan="8"
+                                        colspan="4"
                                         class="text-center text-muted py-4"
                                     >
 
-                                        No hay usuarios registrados.
+                                        <i class="bi bi-book fs-3"></i>
+
+                                        <br>
+
+                                        No hay cursos registrados.
 
                                     </td>
 
                                 </tr>
 
                             <?php endif; ?>
+
 
                             </tbody>
 
@@ -496,6 +543,7 @@ if (!$resultado) {
                 </div>
 
             </div>
+
 
         </main>
 

@@ -187,7 +187,7 @@ $total_almuerzos = $almuerzos["total"];
 
 
                 <a
-                    href="#"
+                    href="estudiantes.php"
                     class="nav-link text-white mb-2"
                 >
 
@@ -199,7 +199,7 @@ $total_almuerzos = $almuerzos["total"];
 
 
                 <a
-                    href="#"
+                    href="cursos.php"
                     class="nav-link text-white mb-2"
                 >
 
@@ -226,7 +226,7 @@ $total_almuerzos = $almuerzos["total"];
 
 
                 <a
-                    href="#"
+                    href="asistencia.php"
                     class="nav-link text-white mb-2"
                 >
 

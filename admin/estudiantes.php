@@ -217,7 +217,7 @@ if (!$resultado) {
 
 
                 <a
-                    href="#"
+                    href="asistencia.php"
                     class="nav-link text-white mb-2"
                 >
 
@@ -553,37 +553,48 @@ if (!$resultado) {
 
                                         <!-- ACCIONES -->
 
-                                        <td>
+ <td>
+
+    <!-- EDITAR -->
+
+    <a
+        href="estudiante_editar.php?id=<?php echo $estudiante["id_estudiante"]; ?>"
+        class="btn btn-sm btn-outline-primary"
+        title="Editar"
+    >
+
+        <i class="bi bi-pencil"></i>
+
+    </a>
 
 
-                                            <a
-                                                href="estudiante_editar.php?id=<?php echo $estudiante["id_estudiante"]; ?>"
-                                                class="btn btn-sm btn-outline-primary"
-                                                title="Editar"
-                                            >
+    <!-- CAMBIAR ESTADO -->
 
-                                                <i class="bi bi-pencil"></i>
+    <a
+        href="estudiante_estado.php?id=<?php echo $estudiante["id_estudiante"]; ?>"
+        class="btn btn-sm btn-outline-warning"
+        title="Cambiar estado"
+    >
 
-                                            </a>
+        <i class="bi bi-arrow-repeat"></i>
+
+    </a>
 
 
-                                            <a
-                                                href="estudiante_estado.php?id=<?php echo $estudiante["id_estudiante"]; ?>"
-                                                class="btn btn-sm btn-outline-warning"
-                                                title="Cambiar estado"
-                                            >
+    <!-- VER QR -->
 
-                                                <i class="bi bi-arrow-repeat"></i>
+    <a
+        href="estudiante_qr.php?id=<?php echo $estudiante["id_estudiante"]; ?>"
+        class="btn btn-sm btn-outline-success"
+        title="Ver código QR"
+    >
 
-                                            </a>
-                                            <a
-    href="estudiante_qr.php?id=<?php echo $estudiante["id_estudiante"]; ?>"
-    class="btn btn-sm btn-outline-success"
-    title="Ver código QR"
->
-    <i class="bi bi-qr-code"></i>
-</a>
-                                        </td>
+        <i class="bi bi-qr-code"></i>
+
+    </a>
+
+</td>
+                                      
 
 
                                     </tr>
