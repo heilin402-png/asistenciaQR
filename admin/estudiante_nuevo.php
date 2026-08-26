@@ -4,7 +4,11 @@ session_start();
 
 require_once("../config/conexion.php");
 
-/* Verificar sesión */
+
+/* ==========================
+   VERIFICAR SESIÓN
+   ========================== */
+
 if (!isset($_SESSION["id_usuario"])) {
 
     header("Location: ../auth/login.php");
@@ -12,7 +16,11 @@ if (!isset($_SESSION["id_usuario"])) {
 
 }
 
-/* Verificar administrador */
+
+/* ==========================
+   VERIFICAR ADMINISTRADOR
+   ========================== */
+
 if ($_SESSION["id_rol"] != 1) {
 
     header("Location: ../docente/dashboard.php");
@@ -20,7 +28,85 @@ if ($_SESSION["id_rol"] != 1) {
 
 }
 
+
 $error = "";
+
+
+/* ==========================
+   OBTENER CURSO
+   ========================== */
+
+$id_curso = 0;
+
+
+/* Si viene por GET */
+
+if (isset($_GET["id_curso"]) && is_numeric($_GET["id_curso"])) {
+
+    $id_curso = intval($_GET["id_curso"]);
+
+}
+
+
+/* Si viene por POST */
+
+if (
+    $_SERVER["REQUEST_METHOD"] == "POST"
+    && isset($_POST["id_curso"])
+    && is_numeric($_POST["id_curso"])
+) {
+
+    $id_curso = intval($_POST["id_curso"]);
+
+}
+
+
+/* Verificar que exista el curso */
+
+if ($id_curso <= 0) {
+
+    header("Location: cursos.php");
+    exit();
+
+}
+
+
+$sql_curso = "SELECT
+                id_curso,
+                nombre_curso,
+                estado
+              FROM cursos
+              WHERE id_curso = ?";
+
+$stmt_curso = mysqli_prepare(
+    $conexion,
+    $sql_curso
+);
+
+mysqli_stmt_bind_param(
+    $stmt_curso,
+    "i",
+    $id_curso
+);
+
+mysqli_stmt_execute($stmt_curso);
+
+$resultado_curso = mysqli_stmt_get_result(
+    $stmt_curso
+);
+
+
+if (mysqli_num_rows($resultado_curso) != 1) {
+
+    header("Location: cursos.php?error=1");
+    exit();
+
+}
+
+
+$curso = mysqli_fetch_assoc(
+    $resultado_curso
+);
 
 
 /* ==========================
@@ -32,7 +118,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $nombres = trim($_POST["nombres"]);
     $apellidos = trim($_POST["apellidos"]);
     $documento = trim($_POST["documento"]);
-    $id_curso = intval($_POST["id_curso"]);
 
 
     /* Validar campos */
@@ -40,8 +125,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (
         empty($nombres) ||
         empty($apellidos) ||
-        empty($documento) ||
-        empty($id_curso)
+        empty($documento)
     ) {
 
         $error = "Todos los campos son obligatorios.";
@@ -49,13 +133,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     } else {
 
 
-        /* Verificar documento */
+        /* ==========================
+           VERIFICAR DOCUMENTO
+           ========================== */
 
         $sql = "SELECT id_estudiante
                 FROM estudiantes
                 WHERE documento = ?";
 
-        $stmt = mysqli_prepare($conexion, $sql);
+        $stmt = mysqli_prepare(
+            $conexion,
+            $sql
+        );
 
         mysqli_stmt_bind_param(
             $stmt,
@@ -75,97 +164,54 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } else {
 
 
-            /* Verificar que el curso exista y esté activo */
+            /* ==========================
+               INSERTAR ESTUDIANTE
+               ========================== */
 
-            $sql = "SELECT id_curso
-                    FROM cursos
-                    WHERE id_curso = ?
-                    AND estado = 'ACTIVO'";
+            $sql = "INSERT INTO estudiantes
+                    (
+                        documento,
+                        nombres,
+                        apellidos,
+                        id_curso,
+                        estado
+                    )
+                    VALUES (?, ?, ?, ?, 'ACTIVO')";
 
-            $stmt = mysqli_prepare($conexion, $sql);
+            $stmt = mysqli_prepare(
+                $conexion,
+                $sql
+            );
 
             mysqli_stmt_bind_param(
                 $stmt,
-                "i",
+                "sssi",
+                $documento,
+                $nombres,
+                $apellidos,
                 $id_curso
             );
 
-            mysqli_stmt_execute($stmt);
 
-            $resultado = mysqli_stmt_get_result($stmt);
+            if (mysqli_stmt_execute($stmt)) {
 
+                header(
+                    "Location: curso_estudiantes.php?id="
+                    . $id_curso
+                    . "&mensaje=creado"
+                );
 
-            if (mysqli_num_rows($resultado) != 1) {
-
-                $error = "El curso seleccionado no es válido.";
+                exit();
 
             } else {
 
-
-                /* Insertar estudiante */
-
-                $sql = "INSERT INTO estudiantes
-                        (
-                            documento,
-                            nombres,
-                            apellidos,
-                            id_curso,
-                            estado
-                        )
-                        VALUES (?, ?, ?, ?, 'ACTIVO')";
-
-                $stmt = mysqli_prepare($conexion, $sql);
-
-                mysqli_stmt_bind_param(
-                    $stmt,
-                    "sssi",
-                    $documento,
-                    $nombres,
-                    $apellidos,
-                    $id_curso
-                );
-
-
-                if (mysqli_stmt_execute($stmt)) {
-
-                    header(
-                        "Location: estudiantes.php?mensaje=creado"
-                    );
-
-                    exit();
-
-                } else {
-
-                    $error = "No se pudo registrar el estudiante.";
-
-                }
+                $error = "No se pudo registrar el estudiante.";
 
             }
 
         }
 
     }
-
-}
-
-
-/* ==========================
-   CONSULTAR CURSOS
-   ========================== */
-
-$sql = "SELECT id_curso, nombre_curso
-        FROM cursos
-        WHERE estado = 'ACTIVO'
-        ORDER BY nombre_curso ASC";
-
-$resultado_cursos = mysqli_query($conexion, $sql);
-
-if (!$resultado_cursos) {
-
-    die(
-        "Error al consultar los cursos: "
-        . mysqli_error($conexion)
-    );
 
 }
 
@@ -184,7 +230,10 @@ if (!$resultado_cursos) {
         content="width=device-width, initial-scale=1"
     >
 
-    <title>Nuevo estudiante - Asistencia QR</title>
+    <title>
+        Nuevo estudiante -
+        <?php echo htmlspecialchars($curso["nombre_curso"]); ?>
+    </title>
 
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css"
@@ -207,9 +256,7 @@ if (!$resultado_cursos) {
 <body class="bg-light">
 
 
-<!-- ==========================
-     BARRA SUPERIOR
-     ========================== -->
+<!-- BARRA SUPERIOR -->
 
 <nav class="navbar navbar-dark bg-primary">
 
@@ -251,9 +298,7 @@ if (!$resultado_cursos) {
     <div class="row">
 
 
-        <!-- ==========================
-             MENÚ LATERAL
-             ========================== -->
+        <!-- MENÚ LATERAL -->
 
         <aside class="col-md-2 bg-dark min-vh-100 p-3">
 
@@ -294,20 +339,8 @@ if (!$resultado_cursos) {
 
 
                 <a
-                    href="estudiantes.php"
+                    href="cursos.php"
                     class="nav-link active mb-2"
-                >
-
-                    <i class="bi bi-mortarboard"></i>
-
-                    Estudiantes
-
-                </a>
-
-
-                <a
-                    href="#"
-                    class="nav-link text-white mb-2"
                 >
 
                     <i class="bi bi-book"></i>
@@ -318,7 +351,7 @@ if (!$resultado_cursos) {
 
 
                 <a
-                    href="#"
+                    href="docente.php"
                     class="nav-link text-white mb-2"
                 >
 
@@ -333,7 +366,7 @@ if (!$resultado_cursos) {
 
 
                 <a
-                    href="#"
+                    href="asistencia.php"
                     class="nav-link text-white mb-2"
                 >
 
@@ -399,9 +432,7 @@ if (!$resultado_cursos) {
         </aside>
 
 
-        <!-- ==========================
-             CONTENIDO
-             ========================== -->
+        <!-- CONTENIDO -->
 
         <main class="col-md-10 p-4">
 
@@ -418,7 +449,14 @@ if (!$resultado_cursos) {
 
                 <p class="text-muted">
 
-                    Registrar un nuevo estudiante en el sistema.
+                    Agregar estudiante al curso
+                    <strong>
+                        <?php
+                        echo htmlspecialchars(
+                            $curso["nombre_curso"]
+                        );
+                        ?>
+                    </strong>
 
                 </p>
 
@@ -432,9 +470,7 @@ if (!$resultado_cursos) {
                     <i class="bi bi-exclamation-triangle"></i>
 
                     <?php
-
                     echo htmlspecialchars($error);
-
                     ?>
 
                 </div>
@@ -448,6 +484,15 @@ if (!$resultado_cursos) {
 
 
                     <form method="POST">
+
+
+                        <!-- ID DEL CURSO -->
+
+                        <input
+                            type="hidden"
+                            name="id_curso"
+                            value="<?php echo $id_curso; ?>"
+                        >
 
 
                         <div class="row">
@@ -533,45 +578,16 @@ if (!$resultado_cursos) {
 
                                 </label>
 
-                                <select
-                                    name="id_curso"
-                                    class="form-select"
-                                    required
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    value="<?php
+                                    echo htmlspecialchars(
+                                        $curso["nombre_curso"]
+                                    );
+                                    ?>"
+                                    readonly
                                 >
-
-                                    <option value="">
-
-                                        Seleccionar curso
-
-                                    </option>
-
-
-                                    <?php while (
-                                        $curso =
-                                        mysqli_fetch_assoc(
-                                            $resultado_cursos
-                                        )
-                                    ): ?>
-
-                                        <option
-                                            value="<?php
-                                            echo $curso["id_curso"];
-                                            ?>"
-                                        >
-
-                                            <?php
-
-                                            echo htmlspecialchars(
-                                                $curso["nombre_curso"]
-                                            );
-
-                                            ?>
-
-                                        </option>
-
-                                    <?php endwhile; ?>
-
-                                </select>
 
                             </div>
 
@@ -585,7 +601,7 @@ if (!$resultado_cursos) {
 
 
                             <a
-                                href="estudiantes.php"
+                                href="curso_estudiantes.php?id=<?php echo $id_curso; ?>"
                                 class="btn btn-secondary"
                             >
 

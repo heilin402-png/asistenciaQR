@@ -272,17 +272,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     class="nav-link text-white mb-2"
                 >
 
-                    <i class="bi bi-mortarboard"></i>
-
-                    Estudiantes
-
-                </a>
-
-                <a
-                    href="#"
-                    class="nav-link text-white mb-2"
-                >
-
                     <i class="bi bi-book"></i>
 
                     Cursos
@@ -290,7 +279,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </a>
 
                 <a
-                    href="#"
+                    href="docentes.php"
                     class="nav-link text-white mb-2"
                 >
 

@@ -41,7 +41,7 @@ $sql = "SELECT
             nombre_curso,
             estado
         FROM cursos
-        ORDER BY id_curso DESC";
+        ORDER BY CAST(nombre_curso AS UNSIGNED) ASC";
 
 $resultado = mysqli_query($conexion, $sql);
 
@@ -179,18 +179,6 @@ if (!$resultado) {
 
 
                 <a
-                    href="estudiantes.php"
-                    class="nav-link text-white mb-2"
-                >
-
-                    <i class="bi bi-mortarboard"></i>
-
-                    Estudiantes
-
-                </a>
-
-
-                <a
                     href="cursos.php"
                     class="nav-link active mb-2"
                 >
@@ -203,7 +191,7 @@ if (!$resultado) {
 
 
                 <a
-                    href="#"
+                    href="docentes.php"
                     class="nav-link text-white mb-2"
                 >
 
@@ -309,17 +297,7 @@ if (!$resultado) {
 
                 </div>
                 
-                </a>
-
-                <a
-                    href="curso_editar.php?id=<?php echo $curso["id_curso"]; ?>"
-                    class="btn btn-sm btn-outline-primary"
-                    title="Editar"
-                >
-                    <i class="bi bi-pencil"></i>
-                </a>
-
-
+                
                 <a
                     href="curso_nuevo.php"
                     class="btn btn-primary"
@@ -484,26 +462,44 @@ if (!$resultado) {
 
                                         <td>
 
+                                            <!-- VER ESTUDIANTES -->
+
                                             <a
-                                                href="curso_editar.php?id=<?php echo $curso["id_curso"]; ?>"
-                                                class="btn btn-sm btn-outline-primary"
-                                                title="Editar"
+                                                href="curso_estudiantes.php?id=<?php echo $curso["id_curso"]; ?>"
+                                                class="btn btn-sm btn-outline-success"
+                                                title="Ver estudiantes"
                                             >
 
-                                                <i class="bi bi-pencil"></i>
+                                                <i class="bi bi-people"></i>
 
                                             </a>
 
 
+                                                <!-- EDITAR CURSO -->
+
                                             <a
-                                                href="curso_estado.php?id=<?php echo $curso["id_curso"]; ?>"
-                                                class="btn btn-sm btn-outline-warning"
-                                                title="Cambiar estado"
+                                                    href="curso_editar.php?id=<?php echo $curso["id_curso"]; ?>"
+                                                    class="btn btn-sm btn-outline-primary"
+                                                    title="Editar"
+                                            >
+
+                                                    <i class="bi bi-pencil"></i>
+
+                                            </a>
+
+
+                                                    <!-- CAMBIAR ESTADO -->
+
+                                            <a
+                                                    href="curso_estado.php?id=<?php echo $curso["id_curso"]; ?>"
+                                                    class="btn btn-sm btn-outline-warning"
+                                                    title="Cambiar estado"
                                             >
 
                                                 <i class="bi bi-arrow-repeat"></i>
 
                                             </a>
+
 
                                         </td>
 

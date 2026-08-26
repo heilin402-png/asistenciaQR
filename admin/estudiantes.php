@@ -178,19 +178,7 @@ if (!$resultado) {
 
 
                 <a
-                    href="estudiantes.php"
-                    class="nav-link active mb-2"
-                >
-
-                    <i class="bi bi-mortarboard"></i>
-
-                    Estudiantes
-
-                </a>
-
-
-                <a
-                    href="#"
+                    href="cursos.php"
                     class="nav-link text-white mb-2"
                 >
 
@@ -202,7 +190,7 @@ if (!$resultado) {
 
 
                 <a
-                    href="#"
+                    href="docentes.php"
                     class="nav-link text-white mb-2"
                 >
 

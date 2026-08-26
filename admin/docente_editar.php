@@ -21,7 +21,7 @@ if (!isset($_SESSION["id_usuario"])) {
 
 
 /* ==========================
-   VERIFICAR ADMINISTRADOR
+   VERIFICAR ADMIN
    ========================== */
 
 if ($_SESSION["id_rol"] != 1) {
@@ -38,20 +38,61 @@ if ($_SESSION["id_rol"] != 1) {
 
 if (!isset($_GET["id"]) || !is_numeric($_GET["id"])) {
 
-    header("Location: estudiantes.php?error=1");
+    header("Location: docentes.php?error=1");
     exit();
 
 }
 
-$id_estudiante = intval($_GET["id"]);
+$id_usuario = intval($_GET["id"]);
 
 $error = "";
 
-echo "ID RECIBIDO: " . $id_estudiante;
+
+/* ==========================
+   CONSULTAR DOCENTE
+   ========================== */
+
+$sql = "
+    SELECT
+        id_usuario,
+        nombres,
+        apellidos,
+        documento,
+        correo,
+        estado
+    FROM usuarios
+    WHERE id_usuario = ?
+    AND id_rol = 2
+";
+
+$stmt = mysqli_prepare(
+    $conexion,
+    $sql
+);
+
+mysqli_stmt_bind_param(
+    $stmt,
+    "i",
+    $id_usuario
+);
+
+mysqli_stmt_execute($stmt);
+
+$resultado = mysqli_stmt_get_result($stmt);
+
+$docente = mysqli_fetch_assoc($resultado);
+
+
+if (!$docente) {
+
+    header("Location: docentes.php?error=1");
+    exit();
+
+}
 
 
 /* ==========================
-   ACTUALIZAR ESTUDIANTE
+   ACTUALIZAR DOCENTE
    ========================== */
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -59,19 +100,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $nombres = trim($_POST["nombres"]);
     $apellidos = trim($_POST["apellidos"]);
     $documento = trim($_POST["documento"]);
-    $id_curso = intval($_POST["id_curso"]);
+    $correo = trim($_POST["correo"]);
+    $estado = $_POST["estado"];
 
 
-    /* Validar campos */
+    /* ==========================
+       VALIDAR CAMPOS
+       ========================== */
 
     if (
-        empty($nombres) ||
-        empty($apellidos) ||
-        empty($documento) ||
-        empty($id_curso)
+        $nombres == "" ||
+        $apellidos == "" ||
+        $documento == "" ||
+        $correo == ""
     ) {
 
         $error = "Todos los campos son obligatorios.";
+
+    } elseif (!filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+
+        $error = "El correo electrónico no es válido.";
+
+    } elseif (
+        $estado != "ACTIVO" &&
+        $estado != "INACTIVO"
+    ) {
+
+        $error = "El estado seleccionado no es válido.";
 
     } else {
 
@@ -80,57 +135,88 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
            VERIFICAR DOCUMENTO
            ========================== */
 
-        $sql = "SELECT id_estudiante
-                FROM estudiantes
-                WHERE documento = ?
-                AND id_estudiante != ?";
+        $sql_documento = "
+            SELECT id_usuario
+            FROM usuarios
+            WHERE documento = ?
+            AND id_usuario != ?
+        ";
 
-        $stmt = mysqli_prepare($conexion, $sql);
-
-        mysqli_stmt_bind_param(
-            $stmt,
-            "si",
-            $documento,
-            $id_estudiante
+        $stmt_documento = mysqli_prepare(
+            $conexion,
+            $sql_documento
         );
 
-        mysqli_stmt_execute($stmt);
+        mysqli_stmt_bind_param(
+            $stmt_documento,
+            "si",
+            $documento,
+            $id_usuario
+        );
 
-        $resultado = mysqli_stmt_get_result($stmt);
+        mysqli_stmt_execute(
+            $stmt_documento
+        );
+
+        $resultado_documento =
+            mysqli_stmt_get_result(
+                $stmt_documento
+            );
 
 
-        if (mysqli_num_rows($resultado) > 0) {
+        if (
+            mysqli_num_rows(
+                $resultado_documento
+            ) > 0
+        ) {
 
-            $error = "El documento ya pertenece a otro estudiante.";
+            $error =
+                "Ya existe otro usuario con ese documento.";
 
         } else {
 
 
             /* ==========================
-               VERIFICAR CURSO
+               VERIFICAR CORREO
                ========================== */
 
-            $sql = "SELECT id_curso
-                    FROM cursos
-                    WHERE id_curso = ?
-                    AND estado = 'ACTIVO'";
+            $sql_correo = "
+                SELECT id_usuario
+                FROM usuarios
+                WHERE correo = ?
+                AND id_usuario != ?
+            ";
 
-            $stmt = mysqli_prepare($conexion, $sql);
-
-            mysqli_stmt_bind_param(
-                $stmt,
-                "i",
-                $id_curso
+            $stmt_correo = mysqli_prepare(
+                $conexion,
+                $sql_correo
             );
 
-            mysqli_stmt_execute($stmt);
+            mysqli_stmt_bind_param(
+                $stmt_correo,
+                "si",
+                $correo,
+                $id_usuario
+            );
 
-            $resultado = mysqli_stmt_get_result($stmt);
+            mysqli_stmt_execute(
+                $stmt_correo
+            );
+
+            $resultado_correo =
+                mysqli_stmt_get_result(
+                    $stmt_correo
+                );
 
 
-            if (mysqli_num_rows($resultado) != 1) {
+            if (
+                mysqli_num_rows(
+                    $resultado_correo
+                ) > 0
+            ) {
 
-                $error = "El curso seleccionado no es válido.";
+                $error =
+                    "Ya existe otro usuario con ese correo.";
 
             } else {
 
@@ -139,38 +225,51 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                    ACTUALIZAR
                    ========================== */
 
-                $sql = "UPDATE estudiantes
-                        SET
-                            documento = ?,
-                            nombres = ?,
-                            apellidos = ?,
-                            id_curso = ?
-                        WHERE id_estudiante = ?";
+                $sql_update = "
+                    UPDATE usuarios
+                    SET
+                        nombres = ?,
+                        apellidos = ?,
+                        documento = ?,
+                        correo = ?,
+                        estado = ?
+                    WHERE id_usuario = ?
+                    AND id_rol = 2
+                ";
 
-                $stmt = mysqli_prepare($conexion, $sql);
+                $stmt_update = mysqli_prepare(
+                    $conexion,
+                    $sql_update
+                );
 
                 mysqli_stmt_bind_param(
-                    $stmt,
-                    "sssii",
-                    $documento,
+                    $stmt_update,
+                    "sssssi",
                     $nombres,
                     $apellidos,
-                    $id_curso,
-                    $id_estudiante
+                    $documento,
+                    $correo,
+                    $estado,
+                    $id_usuario
                 );
 
 
-                if (mysqli_stmt_execute($stmt)) {
+                if (
+                    mysqli_stmt_execute(
+                        $stmt_update
+                    )
+                ) {
 
                     header(
-                        "Location: estudiantes.php?mensaje=editado"
+                        "Location: docentes.php?mensaje=editado"
                     );
 
                     exit();
 
                 } else {
 
-                    $error = "No se pudo actualizar el estudiante.";
+                    $error =
+                        "No se pudo actualizar el docente.";
 
                 }
 
@@ -180,64 +279,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     }
 
-}
 
+    /* ==========================
+       MANTENER DATOS DEL FORMULARIO
+       ========================== */
 
-/* ==========================
-   CONSULTAR ESTUDIANTE
-   ========================== */
-
-$sql = "SELECT
-            id_estudiante,
-            documento,
-            nombres,
-            apellidos,
-            id_curso
-        FROM estudiantes
-        WHERE id_estudiante = ?";
-
-$stmt = mysqli_prepare($conexion, $sql);
-
-mysqli_stmt_bind_param(
-    $stmt,
-    "i",
-    $id_estudiante
-);
-
-mysqli_stmt_execute($stmt);
-
-$resultado = mysqli_stmt_get_result($stmt);
-
-
-if (mysqli_num_rows($resultado) != 1) {
-
-    header("Location: estudiantes.php?error=1");
-    exit();
-
-}
-
-$estudiante = mysqli_fetch_assoc($resultado);
-
-
-/* ==========================
-   CONSULTAR CURSOS
-   ========================== */
-
-$sql = "SELECT
-            id_curso,
-            nombre_curso
-        FROM cursos
-        WHERE estado = 'ACTIVO'
-        ORDER BY nombre_curso ASC";
-
-$resultado_cursos = mysqli_query($conexion, $sql);
-
-if (!$resultado_cursos) {
-
-    die(
-        "Error al consultar cursos: "
-        . mysqli_error($conexion)
-    );
+    $docente["nombres"] = $nombres;
+    $docente["apellidos"] = $apellidos;
+    $docente["documento"] = $documento;
+    $docente["correo"] = $correo;
+    $docente["estado"] = $estado;
 
 }
 
@@ -256,7 +307,7 @@ if (!$resultado_cursos) {
         content="width=device-width, initial-scale=1"
     >
 
-    <title>Editar estudiante - Asistencia QR</title>
+    <title>Editar docente - Asistencia QR</title>
 
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css"
@@ -324,18 +375,22 @@ if (!$resultado_cursos) {
 
 
         <!-- ==========================
-             MENÚ LATERAL
+             MENÚ
              ========================== -->
 
         <aside class="col-md-2 bg-dark min-vh-100 p-3">
 
-            <h5 class="text-white mb-4">
+            <div class="text-white mb-4">
 
-                <i class="bi bi-speedometer2"></i>
+                <h5>
 
-                Administración
+                    <i class="bi bi-speedometer2"></i>
 
-            </h5>
+                    Administración
+
+                </h5>
+
+            </div>
 
 
             <div class="nav flex-column nav-pills">
@@ -366,18 +421,6 @@ if (!$resultado_cursos) {
 
 
                 <a
-                    href="estudiantes.php"
-                    class="nav-link active mb-2"
-                >
-
-                    <i class="bi bi-mortarboard"></i>
-
-                    Estudiantes
-
-                </a>
-
-
-                <a
                     href="cursos.php"
                     class="nav-link text-white mb-2"
                 >
@@ -391,7 +434,7 @@ if (!$resultado_cursos) {
 
                 <a
                     href="docentes.php"
-                    class="nav-link text-white mb-2"
+                    class="nav-link active mb-2"
                 >
 
                     <i class="bi bi-person-workspace"></i>
@@ -484,20 +527,24 @@ if (!$resultado_cursos) {
 
                     <i class="bi bi-pencil-square"></i>
 
-                    Editar estudiante
+                    Editar docente
 
                 </h2>
 
                 <p class="text-muted">
 
-                    Modificar la información del estudiante.
+                    Actualiza la información del docente.
 
                 </p>
 
             </div>
 
 
-            <?php if (!empty($error)): ?>
+            <!-- ==========================
+                 ERROR
+                 ========================== -->
+
+            <?php if ($error != ""): ?>
 
                 <div class="alert alert-danger">
 
@@ -514,12 +561,19 @@ if (!$resultado_cursos) {
             <?php endif; ?>
 
 
+            <!-- ==========================
+                 FORMULARIO
+                 ========================== -->
+
             <div class="card shadow-sm border-0">
 
-                <div class="card-body p-4">
+                <div class="card-body">
 
 
-                    <form method="POST">
+                    <form
+                        method="POST"
+                        autocomplete="off"
+                    >
 
 
                         <div class="row">
@@ -529,7 +583,9 @@ if (!$resultado_cursos) {
 
                             <div class="col-md-6 mb-3">
 
-                                <label class="form-label">
+                                <label
+                                    class="form-label"
+                                >
 
                                     Nombres
 
@@ -539,13 +595,8 @@ if (!$resultado_cursos) {
                                     type="text"
                                     name="nombres"
                                     class="form-control"
-                                    maxlength="100"
-                                    value="<?php
-                                    echo htmlspecialchars(
-                                        $estudiante["nombres"]
-                                    );
-                                    ?>"
                                     required
+                                    value="<?php echo htmlspecialchars($docente["nombres"]); ?>"
                                 >
 
                             </div>
@@ -555,7 +606,9 @@ if (!$resultado_cursos) {
 
                             <div class="col-md-6 mb-3">
 
-                                <label class="form-label">
+                                <label
+                                    class="form-label"
+                                >
 
                                     Apellidos
 
@@ -565,13 +618,8 @@ if (!$resultado_cursos) {
                                     type="text"
                                     name="apellidos"
                                     class="form-control"
-                                    maxlength="100"
-                                    value="<?php
-                                    echo htmlspecialchars(
-                                        $estudiante["apellidos"]
-                                    );
-                                    ?>"
                                     required
+                                    value="<?php echo htmlspecialchars($docente["apellidos"]); ?>"
                                 >
 
                             </div>
@@ -581,7 +629,9 @@ if (!$resultado_cursos) {
 
                             <div class="col-md-6 mb-3">
 
-                                <label class="form-label">
+                                <label
+                                    class="form-label"
+                                >
 
                                     Documento
 
@@ -591,77 +641,62 @@ if (!$resultado_cursos) {
                                     type="text"
                                     name="documento"
                                     class="form-control"
-                                    maxlength="20"
-                                    value="<?php
-                                    echo htmlspecialchars(
-                                        $estudiante["documento"]
-                                    );
-                                    ?>"
                                     required
+                                    value="<?php echo htmlspecialchars($docente["documento"]); ?>"
                                 >
 
                             </div>
 
 
-                            <!-- CURSO -->
+                            <!-- CORREO -->
 
                             <div class="col-md-6 mb-3">
 
-                                <label class="form-label">
+                                <label
+                                    class="form-label"
+                                >
 
-                                    Curso
+                                    Correo electrónico
 
                                 </label>
 
-                                <select
-                                    name="id_curso"
-                                    class="form-select"
+                                <input
+                                    type="email"
+                                    name="correo"
+                                    class="form-control"
                                     required
+                                    value="<?php echo htmlspecialchars($docente["correo"]); ?>"
                                 >
 
-                                    <option value="">
+                            </div>
 
-                                        Seleccionar curso
+                            <!-- ROL -->
 
-                                    </option>
+                            <div class="col-md-6 mb-3">
 
+                                <label
+                                    class="form-label"
+                                >
 
-                                    <?php while (
-                                        $curso =
-                                        mysqli_fetch_assoc(
-                                            $resultado_cursos
-                                        )
-                                    ): ?>
+                                    Rol
 
-                                        <option
-                                            value="<?php
-                                            echo $curso["id_curso"];
-                                            ?>"
-                                            <?php
-                                            if (
-                                                $curso["id_curso"]
-                                                == $estudiante["id_curso"]
-                                            ) {
-                                                echo "selected";
-                                            }
-                                            ?>
-                                        >
+                                </label>
 
-                                            <?php
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    value="DOCENTE"
+                                    disabled
+                                >
 
-                                            echo htmlspecialchars(
-                                                $curso["nombre_curso"]
-                                            );
+                                <small class="text-muted">
 
-                                            ?>
+                                    El rol no puede modificarse desde aquí.
 
-                                        </option>
-
-                                    <?php endwhile; ?>
-
-                                </select>
+                                </small>
 
                             </div>
+
 
                         </div>
 
@@ -669,11 +704,11 @@ if (!$resultado_cursos) {
                         <hr>
 
 
-                        <div class="d-flex gap-2">
+                        <div class="d-flex justify-content-end gap-2">
 
 
                             <a
-                                href="estudiantes.php"
+                                href="docentes.php"
                                 class="btn btn-secondary"
                             >
 
@@ -689,7 +724,7 @@ if (!$resultado_cursos) {
                                 class="btn btn-primary"
                             >
 
-                                <i class="bi bi-save"></i>
+                                <i class="bi bi-check-circle"></i>
 
                                 Guardar cambios
 
@@ -700,7 +735,6 @@ if (!$resultado_cursos) {
 
 
                     </form>
-
 
                 </div>
 
@@ -715,8 +749,8 @@ if (!$resultado_cursos) {
 
 
 <script
-    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js">
-</script>
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"
+></script>
 
 
 </body>

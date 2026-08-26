@@ -160,19 +160,7 @@ $fecha = date("Y-m-d");
 
 
                 <a
-                    href="estudiantes.php"
-                    class="nav-link text-white mb-2"
-                >
-
-                    <i class="bi bi-mortarboard"></i>
-
-                    Estudiantes
-
-                </a>
-
-
-                <a
-                    href="#"
+                    href="cursos.php"
                     class="nav-link text-white mb-2"
                 >
 
@@ -184,7 +172,7 @@ $fecha = date("Y-m-d");
 
 
                 <a
-                    href="#"
+                    href="docentes.php"
                     class="nav-link text-white mb-2"
                 >
 

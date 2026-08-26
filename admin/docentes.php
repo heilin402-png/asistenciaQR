@@ -21,7 +21,7 @@ if (!isset($_SESSION["id_usuario"])) {
 
 
 /* ==========================
-   VERIFICAR ADMINISTRADOR
+   VERIFICAR ADMIN
    ========================== */
 
 if ($_SESSION["id_rol"] != 1) {
@@ -33,93 +33,53 @@ if ($_SESSION["id_rol"] != 1) {
 
 
 /* ==========================
-   VERIFICAR ID DEL CURSO
+   CONSULTAR DOCENTES
    ========================== */
 
-if (!isset($_GET["id"]) || !is_numeric($_GET["id"])) {
+$sql = "SELECT
+            u.id_usuario,
+            u.nombres,
+            u.apellidos,
+            u.documento,
+            u.correo,
+            u.estado,
+            GROUP_CONCAT(
+                DISTINCT c.nombre_curso
+                ORDER BY c.nombre_curso
+                SEPARATOR ', '
+            ) AS cursos
+        FROM usuarios u
 
-    header("Location: cursos.php");
-    exit();
+        LEFT JOIN docente_curso dc
+            ON u.id_usuario = dc.id_usuario
+
+        LEFT JOIN cursos c
+            ON dc.id_curso = c.id_curso
+
+        WHERE u.id_rol = 2
+
+        GROUP BY
+            u.id_usuario,
+            u.nombres,
+            u.apellidos,
+            u.documento,
+            u.correo,
+            u.estado
+
+        ORDER BY u.id_usuario DESC";
+
+
+$resultado = mysqli_query($conexion, $sql);
+
+
+if (!$resultado) {
+
+    die(
+        "Error al consultar docentes: "
+        . mysqli_error($conexion)
+    );
 
 }
-
-$id_curso = intval($_GET["id"]);
-
-
-/* ==========================
-   CONSULTAR CURSO
-   ========================== */
-
-$sql_curso = "SELECT
-                id_curso,
-                nombre_curso,
-                estado
-              FROM cursos
-              WHERE id_curso = ?";
-
-$stmt_curso = mysqli_prepare(
-    $conexion,
-    $sql_curso
-);
-
-mysqli_stmt_bind_param(
-    $stmt_curso,
-    "i",
-    $id_curso
-);
-
-mysqli_stmt_execute($stmt_curso);
-
-$resultado_curso = mysqli_stmt_get_result(
-    $stmt_curso
-);
-
-
-if (mysqli_num_rows($resultado_curso) != 1) {
-
-    header("Location: cursos.php?error=1");
-    exit();
-
-}
-
-
-$curso = mysqli_fetch_assoc(
-    $resultado_curso
-);
-
-
-/* ==========================
-   CONSULTAR ESTUDIANTES
-   ========================== */
-
-$sql_estudiantes = "SELECT
-                        id_estudiante,
-                        documento,
-                        nombres,
-                        apellidos,
-                        estado
-                    FROM estudiantes
-                    WHERE id_curso = ?
-                    ORDER BY apellidos ASC, nombres ASC";
-
-$stmt_estudiantes = mysqli_prepare(
-    $conexion,
-    $sql_estudiantes
-);
-
-mysqli_stmt_bind_param(
-    $stmt_estudiantes,
-    "i",
-    $id_curso
-);
-
-mysqli_stmt_execute(
-    $stmt_estudiantes
-);
-
-$resultado_estudiantes = mysqli_stmt_get_result(
-    $stmt_estudiantes
-);
 
 ?>
 
@@ -136,13 +96,7 @@ $resultado_estudiantes = mysqli_stmt_get_result(
         content="width=device-width, initial-scale=1"
     >
 
-    <title>
-        Estudiantes - <?php
-        echo htmlspecialchars(
-            $curso["nombre_curso"]
-        );
-        ?>
-    </title>
+    <title>Docentes - Asistencia QR</title>
 
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css"
@@ -210,18 +164,22 @@ $resultado_estudiantes = mysqli_stmt_get_result(
 
 
         <!-- ==========================
-             MENÚ LATERAL
+             MENÚ
              ========================== -->
 
         <aside class="col-md-2 bg-dark min-vh-100 p-3">
 
-            <h5 class="text-white mb-4">
+            <div class="text-white mb-4">
 
-                <i class="bi bi-speedometer2"></i>
+                <h5>
 
-                Administración
+                    <i class="bi bi-speedometer2"></i>
 
-            </h5>
+                    Administración
+
+                </h5>
+
+            </div>
 
 
             <div class="nav flex-column nav-pills">
@@ -250,9 +208,10 @@ $resultado_estudiantes = mysqli_stmt_get_result(
 
                 </a>
 
+
                 <a
                     href="cursos.php"
-                    class="nav-link active mb-2"
+                    class="nav-link text-white mb-2"
                 >
 
                     <i class="bi bi-book"></i>
@@ -263,8 +222,8 @@ $resultado_estudiantes = mysqli_stmt_get_result(
 
 
                 <a
-                    href="#"
-                    class="nav-link text-white mb-2"
+                    href="docentes.php"
+                    class="nav-link active mb-2"
                 >
 
                     <i class="bi bi-person-workspace"></i>
@@ -351,8 +310,6 @@ $resultado_estudiantes = mysqli_stmt_get_result(
         <main class="col-md-10 p-4">
 
 
-            <!-- ENCABEZADO -->
-
             <div
                 class="d-flex justify-content-between align-items-center mb-4"
             >
@@ -361,23 +318,15 @@ $resultado_estudiantes = mysqli_stmt_get_result(
 
                     <h2>
 
-                        <i class="bi bi-book"></i>
+                        <i class="bi bi-person-workspace"></i>
 
-                        Curso:
-
-                        <?php
-
-                        echo htmlspecialchars(
-                            $curso["nombre_curso"]
-                        );
-
-                        ?>
+                        Docentes
 
                     </h2>
 
                     <p class="text-muted mb-0">
 
-                        Estudiantes registrados en este curso.
+                        Administración de docentes del sistema.
 
                     </p>
 
@@ -385,165 +334,106 @@ $resultado_estudiantes = mysqli_stmt_get_result(
 
 
                 <a
-                    href="estudiante_nuevo.php?id_curso=<?php echo $id_curso; ?>"
+                    href="docente_nuevo.php"
                     class="btn btn-primary"
                 >
 
-                    <i class="bi bi-person-plus"></i>
+                    <i class="bi bi-plus-circle"></i>
 
-                    Agregar estudiante
-
-                </a>
-
-            </div>
-
-
-            <!-- BOTÓN VOLVER -->
-
-            <div class="mb-3">
-
-                <a
-                    href="cursos.php"
-                    class="btn btn-outline-secondary"
-                >
-
-                    <i class="bi bi-arrow-left"></i>
-
-                    Volver a cursos
+                    Nuevo docente
 
                 </a>
 
             </div>
 
 
-            <!-- INFORMACIÓN DEL CURSO -->
+            <!-- ==========================
+                 MENSAJES
+                 ========================== -->
 
-            <div class="row mb-4">
+            <?php if (isset($_GET["mensaje"])): ?>
 
 
-                <div class="col-md-4">
+                <?php if ($_GET["mensaje"] == "creado"): ?>
 
-                    <div class="card shadow-sm border-0">
+                    <div class="alert alert-success">
 
-                        <div class="card-body">
+                        <i class="bi bi-check-circle"></i>
 
-                            <div class="text-muted">
-
-                                Curso
-
-                            </div>
-
-                            <h3 class="mb-0">
-
-                                <?php
-
-                                echo htmlspecialchars(
-                                    $curso["nombre_curso"]
-                                );
-
-                                ?>
-
-                            </h3>
-
-                        </div>
+                        Docente creado correctamente.
 
                     </div>
 
-                </div>
 
+                <?php elseif ($_GET["mensaje"] == "editado"): ?>
 
-                <div class="col-md-4">
+                    <div class="alert alert-success">
 
-                    <div class="card shadow-sm border-0">
+                        <i class="bi bi-check-circle"></i>
 
-                        <div class="card-body">
-
-                            <div class="text-muted">
-
-                                Estudiantes
-
-                            </div>
-
-                            <h3 class="mb-0">
-
-                                <?php
-
-                                echo mysqli_num_rows(
-                                    $resultado_estudiantes
-                                );
-
-                                ?>
-
-                            </h3>
-
-                        </div>
+                        Docente actualizado correctamente.
 
                     </div>
 
-                </div>
 
+                <?php elseif ($_GET["mensaje"] == "asignado"): ?>
 
-                <div class="col-md-4">
+                    <div class="alert alert-success">
 
-                    <div class="card shadow-sm border-0">
+                        <i class="bi bi-check-circle"></i>
 
-                        <div class="card-body">
-
-                            <div class="text-muted">
-
-                                Estado
-
-                            </div>
-
-                            <h3 class="mb-0">
-
-                                <?php
-
-                                if (
-                                    $curso["estado"]
-                                    == "ACTIVO"
-                                ) {
-
-                                    echo '<span class="badge text-bg-success">
-                                            ACTIVO
-                                          </span>';
-
-                                } else {
-
-                                    echo '<span class="badge text-bg-secondary">
-                                            INACTIVO
-                                          </span>';
-
-                                }
-
-                                ?>
-
-                            </h3>
-
-                        </div>
+                        Curso asignado correctamente.
 
                     </div>
 
+
+                <?php elseif ($_GET["mensaje"] == "desasignado"): ?>
+
+                    <div class="alert alert-success">
+
+                        <i class="bi bi-check-circle"></i>
+
+                        Curso desasignado correctamente.
+
+                    </div>
+
+
+                <?php elseif ($_GET["mensaje"] == "estado"): ?>
+
+                    <div class="alert alert-success">
+
+                        <i class="bi bi-check-circle"></i>
+
+                        Estado del docente actualizado.
+
+                    </div>
+
+                <?php endif; ?>
+
+
+            <?php endif; ?>
+
+
+            <?php if (isset($_GET["error"])): ?>
+
+                <div class="alert alert-danger">
+
+                    <i class="bi bi-exclamation-triangle"></i>
+
+                    No se pudo realizar la operación.
+
                 </div>
 
-            </div>
+            <?php endif; ?>
 
 
-            <!-- TABLA DE ESTUDIANTES -->
+            <!-- ==========================
+                 TABLA
+                 ========================== -->
 
             <div class="card shadow-sm border-0">
 
                 <div class="card-body">
-
-
-                    <h5 class="mb-3">
-
-                        <i class="bi bi-people"></i>
-
-                        Estudiantes del curso
-
-                    </h5>
-
 
                     <div class="table-responsive">
 
@@ -555,11 +445,15 @@ $resultado_estudiantes = mysqli_stmt_get_result(
 
                                 <tr>
 
+                                    <th>ID</th>
+
+                                    <th>Docente</th>
+
                                     <th>Documento</th>
 
-                                    <th>Nombres</th>
+                                    <th>Correo</th>
 
-                                    <th>Apellidos</th>
+                                    <th>Curso(s)</th>
 
                                     <th>Estado</th>
 
@@ -574,30 +468,60 @@ $resultado_estudiantes = mysqli_stmt_get_result(
 
 
                             <?php if (
-                                mysqli_num_rows(
-                                    $resultado_estudiantes
-                                ) > 0
+                                mysqli_num_rows($resultado) > 0
                             ): ?>
 
 
                                 <?php while (
-                                    $estudiante =
-                                    mysqli_fetch_assoc(
-                                        $resultado_estudiantes
-                                    )
+                                    $docente = mysqli_fetch_assoc($resultado)
                                 ): ?>
+
 
                                     <tr>
 
 
+                                        <!-- ID -->
+
+                                        <td>
+
+                                            <?php
+
+                                            echo $docente["id_usuario"];
+
+                                            ?>
+
+                                        </td>
+
+
+                                        <!-- DOCENTE -->
+
+                                        <td>
+
+                                            <strong>
+
+                                                <?php
+
+                                                echo htmlspecialchars(
+                                                    $docente["nombres"]
+                                                    . " "
+                                                    . $docente["apellidos"]
+                                                );
+
+                                                ?>
+
+                                            </strong>
+
+                                        </td>
+
+
+                                        <!-- DOCUMENTO -->
+
                                         <td>
 
                                             <?php
 
                                             echo htmlspecialchars(
-                                                $estudiante[
-                                                    "documento"
-                                                ]
+                                                $docente["documento"]
                                             );
 
                                             ?>
@@ -605,14 +529,14 @@ $resultado_estudiantes = mysqli_stmt_get_result(
                                         </td>
 
 
+                                        <!-- CORREO -->
+
                                         <td>
 
                                             <?php
 
                                             echo htmlspecialchars(
-                                                $estudiante[
-                                                    "nombres"
-                                                ]
+                                                $docente["correo"]
                                             );
 
                                             ?>
@@ -620,27 +544,52 @@ $resultado_estudiantes = mysqli_stmt_get_result(
                                         </td>
 
 
-                                        <td>
-
-                                            <?php
-
-                                            echo htmlspecialchars(
-                                                $estudiante[
-                                                    "apellidos"
-                                                ]
-                                            );
-
-                                            ?>
-
-                                        </td>
-
+                                        <!-- CURSOS -->
 
                                         <td>
 
                                             <?php if (
-                                                $estudiante[
-                                                    "estado"
-                                                ] == "ACTIVO"
+                                                !empty($docente["cursos"])
+                                            ): ?>
+
+                                                <span
+                                                    class="badge text-bg-info"
+                                                >
+
+                                                    <i class="bi bi-book"></i>
+
+                                                    <?php
+
+                                                    echo htmlspecialchars(
+                                                        $docente["cursos"]
+                                                    );
+
+                                                    ?>
+
+                                                </span>
+
+                                            <?php else: ?>
+
+                                                <span
+                                                    class="text-muted"
+                                                >
+
+                                                    Sin asignar
+
+                                                </span>
+
+                                            <?php endif; ?>
+
+                                        </td>
+
+
+                                        <!-- ESTADO -->
+
+                                        <td>
+
+                                            <?php if (
+                                                $docente["estado"]
+                                                == "ACTIVO"
                                             ): ?>
 
                                                 <span
@@ -666,13 +615,15 @@ $resultado_estudiantes = mysqli_stmt_get_result(
                                         </td>
 
 
+                                        <!-- ACCIONES -->
+
                                         <td>
 
 
                                             <!-- EDITAR -->
 
                                             <a
-                                                href="estudiante_editar.php?id=<?php echo $estudiante["id_estudiante"]; ?>&id_curso=<?php echo $id_curso; ?>"
+                                                href="docente_editar.php?id=<?php echo $docente["id_usuario"]; ?>"
                                                 class="btn btn-sm btn-outline-primary"
                                                 title="Editar"
                                             >
@@ -682,11 +633,37 @@ $resultado_estudiantes = mysqli_stmt_get_result(
                                             </a>
 
 
-                                            <!-- ESTADO -->
+                                            <!-- ASIGNAR CURSO -->
 
                                             <a
-                                                href="estudiante_estado.php?id=<?php echo $estudiante["id_estudiante"]; ?>&id_curso=<?php echo $id_curso; ?>"
+                                                href="docente_asignar.php?id=<?php echo $docente["id_usuario"]; ?>"
+                                                class="btn btn-sm btn-outline-success"
+                                                title="Asignar curso"
+                                            >
+
+                                                <i class="bi bi-bookmark-plus"></i>
+
+                                            </a>
+
+
+                                            <!-- DESASIGNAR CURSO -->
+
+                                            <a
+                                                href="docente_desasignar.php?id=<?php echo $docente["id_usuario"]; ?>"
                                                 class="btn btn-sm btn-outline-warning"
+                                                title="Desasignar curso"
+                                            >
+
+                                                <i class="bi bi-bookmark-dash"></i>
+
+                                            </a>
+
+
+                                            <!-- CAMBIAR ESTADO -->
+
+                                            <a
+                                                href="docente_estado.php?id=<?php echo $docente["id_usuario"]; ?>"
+                                                class="btn btn-sm btn-outline-secondary"
                                                 title="Cambiar estado"
                                             >
 
@@ -695,59 +672,37 @@ $resultado_estudiantes = mysqli_stmt_get_result(
                                             </a>
 
 
-                                            <!-- QR -->
-
-                                            <a
-                                                href="estudiante_qr.php?id=<?php echo $estudiante["id_estudiante"]; ?>"
-                                                class="btn btn-sm btn-outline-success"
-                                                title="Ver QR"
-                                            >
-
-                                                <i class="bi bi-qr-code"></i>
-
-                                            </a>
-
-
                                         </td>
 
+
                                     </tr>
+
 
                                 <?php endwhile; ?>
 
 
                             <?php else: ?>
 
+
                                 <tr>
 
                                     <td
-                                        colspan="5"
-                                        class="text-center text-muted py-5"
+                                        colspan="7"
+                                        class="text-center text-muted py-4"
                                     >
 
                                         <i
-                                            class="bi bi-people fs-1"
+                                            class="bi bi-person-workspace fs-3"
                                         ></i>
 
-                                        <p class="mt-3 mb-2">
+                                        <br>
 
-                                            Este curso todavía no tiene estudiantes.
-
-                                        </p>
-
-                                        <a
-                                            href="estudiante_nuevo.php?id_curso=<?php echo $id_curso; ?>"
-                                            class="btn btn-primary"
-                                        >
-
-                                            <i class="bi bi-person-plus"></i>
-
-                                            Agregar primer estudiante
-
-                                        </a>
+                                        No hay docentes registrados.
 
                                     </td>
 
                                 </tr>
+
 
                             <?php endif; ?>
 
@@ -771,8 +726,8 @@ $resultado_estudiantes = mysqli_stmt_get_result(
 
 
 <script
-    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js">
-</script>
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"
+></script>
 
 
 </body>

@@ -359,19 +359,6 @@ $usuario = mysqli_fetch_assoc($resultado);
 
                 </a>
 
-
-                <a
-                    href="#"
-                    class="nav-link text-white mb-2"
-                >
-
-                    <i class="bi bi-mortarboard"></i>
-
-                    Estudiantes
-
-                </a>
-
-
                 <a
                     href="#"
                     class="nav-link text-white mb-2"
@@ -385,7 +372,7 @@ $usuario = mysqli_fetch_assoc($resultado);
 
 
                 <a
-                    href="#"
+                    href="docentes.php"
                     class="nav-link text-white mb-2"
                 >
 
